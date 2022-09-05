@@ -4,17 +4,18 @@
  * @see https://developer.wordpress.org/block-editor/reference-guides/packages/packages-i18n/
  */
 import { __ } from '@wordpress/i18n';
-import { RichText } from '@wordpress/block-editor';
-//import apiFetch from '@wordpress/api-fetch';
+import axios from "axios";
+import { Input, Card} from "antd";
+import './custom.css';
+
 /**
  * React hook that is used to mark the block wrapper element.
  * It provides all the necessary props like the class name.
  *
- * 
  * @see https://developer.wordpress.org/block-editor/reference-guides/packages/packages-block-editor/#useblockprops
  */
-import { useBlockProps } from '@wordpress/block-editor';
-import { Autocomplete } from '@wordpress/components';
+import { useBlockProps, RichText } from '@wordpress/block-editor';
+
 /**
  * Lets webpack process CSS, SASS or SCSS files referenced in JavaScript files.
  * Those files can contain any CSS code that gets applied to the editor.
@@ -24,13 +25,6 @@ import { Autocomplete } from '@wordpress/components';
 import './editor.scss';
 
 /**
-* A user mentions completer.
-*
-* @type {Completer}
-*/
-
-
-/**
  * The edit function describes the structure of your block in the context of the
  * editor. This represents what the editor will render when the block is used.
  *
@@ -38,63 +32,70 @@ import './editor.scss';
  *
  * @return {WPElement} Element to render.
  */
-export default function Edit({attributes, setAttributes}) {
 
+//import { SearchControl } from '@wordpress/components';
+import { useState, useEffect, React } from '@wordpress/element';
+//import apiFetch from '@wordpress/api-fetch';
 
-		const autoConfigs = [
-			{	
-				//The name of the completer.
-				name: "resorts",
-				
-				// The prefix that triggers this completer
-				triggerPrefix: "/",
-				
-				//The raw options for completion. May be an array, a function that returns an array, or a function that returns a promise for an array
-				options () {
-					async function loadNames() {
-					const response = await fetch('https://api.fnugg.no/search');
-					const names = await response.json();
+export default function Edit() {	
 
-					console.log(names); 
+	const blockProps = useBlockProps();
 
-					}
-					loadNames();
-				},
-
-				//A function that returns the label for a given option. A label may be a string or a mixed array of strings, elements, and components.
-				getOptionLabel: option => (
-					<span>
-					{ option.hits.hits[0]._source.name }
-					</span>
-				),
-
-				// A function that returns the keywords for the specified option.
-				getOptionKeywords: option => [ option.hits.hits[0]._source.name ],
-
-				//A function that takes an option and responds with how the option should be completed. 
-				getOptionCompletion: option => (
-				<abbr title={ option.hits.hits[0]._source.name }>{ option.hits.hits[0]._source.name }</abbr>
-			),
-			}
-		];
-
-		return (
-			<div { ...useBlockProps() }>
-				<RichText
-					autocompleters={ autoConfigs }
-					value={attributes.name}
-					onChange={ ( newValue ) => {
-						setAttributes( { value: newValue } );
-					} }
-					placeholder={ __(`Type ${autoConfigs[0].triggerPrefix} to choose a ${autoConfigs[0].name}`) }
-				/>
-			</div>
-		)
+	const [users, setUsers] = useState([]);
+	const [text, setText] = useState('');
+	const [suggessions, setSuggessions] = useState([]);
+	useEffect(() => {
+		const loadUsers = async () => {
+			const response = await axios.get('http://react-wordpress.local/wp-json/gutenberg/v1/resort/');
+			console.log(response.data.hits.hits);
+			setUsers(response.data.hits.hits)
+		}
+		loadUsers();
+	}, [])
+	const onSuggessionHandler = (text) => {
+		setText(text);
+		setSuggessions([]);
 	}
-
-
-
-
-
+	const onChangeHandler = (text) => {
+		let matches = []
+		if(text.length > 0){
+			matches = users.filter(user => {
+				const regex = new RegExp(`${text}`, "gi");
+				return user._source.name.match(regex)
+			})
+		}
+		console.log('matches', matches);
+		setSuggessions(matches)
+		setText(text)
+	}
+	return (
+		<p { ...blockProps }>
+			
+			<div style={{padding: "50px"}}>
+			<h2 style={{marginBottom: "5px"}}>Fnugg Resort Search</h2>
+			<hr />
+			<h4 style={{marginTop: "10px"}}>By Shams</h4>
+			</div>
+			<Input type="text" style={{width: "100%", height: "50px"}}
+				onChange={e=>onChangeHandler(e.target.value)}
+				value={text} 
+				onBlur={() => {
+					setTimeout(() => {
+						setSuggessions([])
+					}, 200);
+			}}
+			/>
+			{suggessions && suggessions.map((suggession, i) => 
+			<div key={i} className="suggession"
+			onClick={() => onSuggessionHandler(suggession._source.name)}
+			>{suggession._source.name}</div>
+			)}
+			
+		</p>
+		
+	)
 	
+		
+}
+
 
